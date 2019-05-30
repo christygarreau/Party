@@ -1,0 +1,171 @@
+globals [
+group-sites ;; agentset of patches where groups are located
+boring-groups ;; how many groups are currently single-sex
+]
+
+turtles-own [
+happy? ;; true or false
+my-group-site
+man?
+woman?
+nb?
+drunk?
+]
+
+to setup
+clear-all
+set group-sites patches with [group-site?]
+set-default-shape turtles "person"
+create-turtles number [
+choose-gender ;;get gender/drunk
+set happy? false
+set size 3 ;;be easier to see
+set my-group-site one-of group-sites
+move-to my-group-site
+]
+
+;;ask turtles [ update-happiness ]
+
+count-boring-groups
+update-labels
+ask turtles [ spread-out-vertically ]
+reset-ticks
+end
+
+to go
+if all? turtles [happy?]
+[ stop ] ;; stop the simulation if everyone is happy
+ask turtles [ move-to my-group-site ] ;; put all people back to their group sites
+ask turtles [ update-happiness ]
+ask turtles [ leave-if-unhappy ]
+find-new-groups
+update-labels
+count-boring-groups
+ask turtles [
+set my-group-site patch-here
+spread-out-vertically
+]
+tick
+end
+
+to update-happiness ;; turtle procedure
+let total count turtles-here
+let same count turtles-here with [color = [color] of myself]
+let total-drunk count turtles with [color = yellow]
+let opposite (total - same - total-drunk)
+let total-drunk-here count turtles-here with [color = yellow]
+
+if nb? or woman? or man?
+[ifelse (total-drunk-here / total) > (tolerance / 100)
+[set happy? false]
+[set happy? true]
+]
+
+;;if nb? or woman? or man?
+;;[set happy? (opposite / total) <= (tolerance / 100)
+;;]
+
+if drunk?
+[set happy? true]
+end
+
+to leave-if-unhappy ;; turtle procedure
+if happy? = false[
+set heading one-of [90 270] ;; randomly face right or left
+fd 1 ;; leave old group
+]
+end
+
+to find-new-groups
+display ;; force display update so we see animation
+let malcontents turtles with [not member? patch-here group-sites]
+if not any? malcontents [ stop ]
+ask malcontents [ fd 1 ]
+find-new-groups
+end
+
+to-report group-site? ;; patch procedure
+;; if your pycor is 0 and your pxcor is where a group should be located,
+;; then you're a group site.
+;; In this model (0,0) is near the right edge, so pxcor is usually
+;; negative.
+;; first figure out how many patches apart the groups will be
+let group-interval floor (world-width / num-groups)
+report
+;; all group sites are in the middle row
+(pycor = 0) and
+;; leave a right margin of one patch, for legibility
+(pxcor <= 0) and
+;; the distance between groups must divide evenly into
+;; our pxcor
+(pxcor mod group-interval = 0) and
+;; finally, make sure we don't wind up with too many groups
+(floor ((- pxcor) / group-interval) < num-groups)
+end
+
+to spread-out-vertically ;; turtle procedure
+ifelse drunk?
+[ set heading 180 ] ;; face south
+[ set heading 0 ] ;; face north
+fd 4 ;; leave a gap
+while [any? other turtles-here] [
+if-else can-move? 2 [
+fd 1
+]
+[ ;; else, if we reached the edge of the screen
+set xcor xcor - 1 ;; take a step to the left
+set ycor 0 ;; and move to the base a new stack
+fd 4
+]
+]
+end
+
+to count-boring-groups
+ask group-sites [
+ifelse boring?
+[ set plabel-color black ]
+[ set plabel-color white ]
+]
+set boring-groups count group-sites with [plabel-color = black]
+end
+
+to-report boring? ;; patch procedure
+;; To see whether this group is single sex, we collect the colors
+;; of the turtles into a list, then remove all the duplicates
+;; from the list. If the result is a list with exactly one color
+;; in it, then the group is single sex.
+report length remove-duplicates ([color] of turtles-here) = 1
+end
+
+to update-labels
+ask group-sites [ set plabel count turtles-here ]
+end
+
+;;;
+;;; color procedures
+;;;
+
+;; Blue represents male, pink represents female. No stereotypes are meant
+;; to be promoted. Simply change the colors right here if you'd like.
+
+to choose-gender ;; turtle procedure
+set nb? false
+set woman? false
+set man? false
+set drunk? false
+
+let temp random 100
+set nb? temp <= 14
+set woman? 14 < temp and temp <= 42
+set man? 42 < temp and temp <= 70
+set drunk? 70 < temp and temp <= 100
+
+if nb?
+[set color green]
+if woman?
+[set color pink]
+if man?
+[set color blue]
+if drunk?
+[set color yellow]
+end
